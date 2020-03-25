@@ -1,0 +1,39 @@
+---
+layout: post
+title:  "Magic"
+date:   2020-03-25 10:33:45 +0100
+categories: STM32, Neural networks, Edge-AI, gesture detection, tensorflow
+---
+I have made a port of the tensorflow lite for microcontrollers [magic wand demo][tflm-magic] for the [STM32F3-discovery][STMdisco]. The code is available on [my GitHub][disco-magic].
+
+As usual this is just a little hack to show that it was possible to port it, but it actually sort of works.
+
+With the [STM32Cube.AI][stmAI] plug-in of the [STM32CubeMX][atmMX] application, you can load a tflite model and the tool will calculate if your model will fit onto your microcontroller. For development on Ubuntu 19.10, I currently use the [STM32CubeIDE][stmIDE]. So, I used the STM32CubeMX to generate a STM32F3-discovery project with an example application of how to use inference with the tflite model.
+
+On microcontrollers you usually don't have any filesystem, so the the tflite model is stored in a header file. However, the STM32Cube.AI tool, want a tflite file to analyze. This is easily fixed by a revers hex dump of the magic_wand_model_data.cc from the tensorflow git onto a magic.tflite file.
+
+`xxd -r -p magic_wand_model_data.cc > magic.tflite` 
+
+To validate that the code was working I copied the: 
+`g_ring_micro_f9643d42_nohash_4_data[]` array from the `ring_micro_features_data.cc`, and after inference, the out_data[1] vector had the highest score as expected, with the respctive `g_slope_micro_f2e59fea_nohash_1_data[]` the out_data[2] vector had the highest score and as expected for random input data the out_data[3] had the highest score. So, far so good. 
+
+The next issue was that the accelerometer/gyro code for the STM32F3-discovery is not included for STM32CubeMX. But, by looking at the STM32F3-Discovery Demonstration code in: `~/STM32Cube/Repository/STM32Cube_FW_F3_V1.11.0/Projects/STM32F3-Discovery/Demonstrations`, I managed to figure out how to include the Drivers(BSP/STM32F3_discovery/*.c e.t.c files to get the Gyro up and running.
+
+To make the capture of gesture data as easy as possible I decided to use the "User Button" of the STM32F3-discovery. When the button is down, data is captured and capture stops when the button is released. Since, the magic CNN model requires a fixed input data size, the LEDs are blinking while the buffer is not full and are turned off when to buffer is filled. Then, after inference the blue LEDs are lit if a Wing gesture was captured, the green LEDs are lit after a Ring gesture, the orange LEDs after a Slope gesture and if none of the learned gestures are captured the red LEDs are lit.
+
+Unfortunately, this didn't work so well. So, I decided to train the model with data that I captured from my STM32F3-discovery device. There are detailed instructions on how to re-train your magic model in the [tensorflow git][tflm-train]. Basically, you just add you own name to the names list of the data_prepare.py python script and add your capture wing, ring and slope data to the respective folders of the [magic data set][tflm-data].
+
+To capture gyro data from the STM32F3-discovery I modified my [stm32f3 usb printf][disco-usb] code, to add printing of gyro data in a main loop with the same timings as in the magic main loop. Then I just copied from the terminal output to the respective gesture files and re-trained the model. 
+
+So, now when I hold the device with the "ST-Link" USB cable in my hand and perform the gesture while the LEDs are blinking it actually works a lot of the times. For sure the network appear a bit unbalanced, for example the Wing appear to get highest score by just moving the device up and down. But, since this is just for proof of concept I am not going into details on how to optimize the model at the moment.
+
+
+[tflm-magic]: https://github.com/tensorflow/tensorflow/tree/master/tensorflow/lite/micro/examples/magic_wand
+[STMdisco]:https://www.st.com/en/evaluation-tools/stm32f3discovery.html
+[disco-magic]: https://github.com/martaAFRY/stm32f3_disco_tflite_magic_wand
+[stmMX]: https://www.st.com/en/development-tools/stm32cubemx.html
+[stmAI]: https://www.st.com/content/st_com/en/stm32-ann.html
+[stmIDE]: https://www.st.com/en/development-tools/stm32cubeide.html
+[tflm-train]: https://github.com/tensorflow/tensorflow/tree/master/tensorflow/lite/micro/examples/magic_wand/train
+[tflm-data]: download.tensorflow.org/models/tflite/magic_wand/data.tar.gz
+[disco-usb]: https://github.com/martaAFRY/stm32f3_disco_usb_printf

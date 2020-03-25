@@ -2,7 +2,7 @@
 layout: post
 title:  "Magic"
 date:   2020-03-25 10:33:45 +0100
-categories: STM32, Neural networks, Edge-AI, gesture detection, tensorflow
+categories: 
 ---
 I have made a port of the tensorflow lite for microcontrollers [magic wand demo][tflm-magic] for the [STM32F3-discovery][STMdisco]. The code is available on [my GitHub][disco-magic].
 
